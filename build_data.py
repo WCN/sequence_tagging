@@ -1,5 +1,5 @@
 from model.config import Config
-from model.data_utils import CoNLLDataset, get_vocabs, UNK, NUM, \
+from model.data_utils import AnnotationDataset, get_vocabs, UNK, NUM, \
     get_glove_vocab, write_vocab, load_vocab, get_char_vocab, \
     export_trimmed_glove_vectors, get_processing_word
 
@@ -24,9 +24,9 @@ def main():
     processing_word = get_processing_word(lowercase=True)
 
     # Generators
-    dev   = CoNLLDataset(config.filename_dev, processing_word)
-    test  = CoNLLDataset(config.filename_test, processing_word)
-    train = CoNLLDataset(config.filename_train, processing_word)
+    dev   = AnnotationDataset('/ben/textkernel/annotations', file_extension='ann', processing_word=processing_word)
+    test  = AnnotationDataset('/ben/annotations/outputSmall/', file_extension='ann', processing_word=processing_word)
+    train = AnnotationDataset('/u02/textkernel/annotations', file_extension='ann', processing_word=processing_word)
 
     # Build Word and Tag vocab
     vocab_words, vocab_tags = get_vocabs([train, dev, test])

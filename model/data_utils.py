@@ -1,5 +1,6 @@
 import numpy as np
 import os
+from stat import *
 
 
 # shared global variables to be imported from model also
@@ -22,65 +23,63 @@ trimm your word vectors.
         super(MyIOError, self).__init__(message)
 
 
-class CoNLLDataset(object):
-    """Class that iterates over CoNLL Dataset
-
-    __iter__ method yields a tuple (words, tags)
-        words: list of raw words
-        tags: list of raw tags
-
-    If processing_word and processing_tag are not None,
-    optional preprocessing is appplied
-
-    Example:
-        ```python
-        data = CoNLLDataset(filename)
-        for sentence, tags in data:
-            pass
-        ```
-
-    """
-    def __init__(self, filename, processing_word=None, processing_tag=None,
-                 max_iter=None):
+class AnnotationDataset(object):
+    def __init__(self, directory, processing_word=None, processing_tag=None,
+                 max_iter=1, file_extension='ann'):
         """
+        Searches annotation files maxdepth 2, i.e. in directory and all
+        subdirectories.
+        
         Args:
-            filename: path to the file
+            directory: path to the files
             processing_words: (optional) function that takes a word as input
             processing_tags: (optional) function that takes a tag as input
             max_iter: (optional) max number of sentences to yield
-
         """
-        self.filename = filename
+        self.directory = directory
         self.processing_word = processing_word
         self.processing_tag = processing_tag
         self.max_iter = max_iter
+        if self.max_iter is None:
+            self.max_iter = 1
         self.length = None
+        self.file_extension = file_extension
 
-
-    def __iter__(self):
-        niter = 0
-        with open(self.filename) as f:
+    def __yield_file__(self, filename):
+        with open(filename, 'r') as myfile:
+            lines = myfile.read().split('\n')
             words, tags = [], []
-            for line in f:
-                line = line.strip()
-                if (len(line) == 0 or line.startswith("-DOCSTART-")):
-                    if len(words) != 0:
-                        niter += 1
-                        if self.max_iter is not None and niter > self.max_iter:
-                            break
-                        yield words, tags
-                        words, tags = [], []
-                else:
-                    ls = line.split(' ')
-                    word, tag = ls[0],ls[1]
-                    if self.processing_word is not None:
+            for line in lines:
+                sp = line.split('\t')
+                if len(sp) == 2:
+                    word, tag = sp
+                    if self.processing_word is not None:                    
                         word = self.processing_word(word)
                     if self.processing_tag is not None:
                         tag = self.processing_tag(tag)
-                    words += [word]
-                    tags += [tag]
-
-
+                    words.append(word)
+                    tags.append(tag)
+                #else:
+                #    print(line)
+            return words, tags
+        
+    def __iter__(self):
+        listing = os.listdir(self.directory)
+        for iter in range(self.max_iter):
+            for d in listing:
+                pathname = os.path.join(self.directory, d)
+                mode = os.stat(pathname)[ST_MODE]
+                if S_ISDIR(mode):
+                    #print(pathname)
+                    file_listing = os.listdir(pathname)
+                    for f in file_listing:
+                        if f.endswith(self.file_extension):
+                            #print(os.path.join(pathname, f))
+                            yield self.__yield_file__(os.path.join(pathname, f))
+                else:
+                    if d.endswith(self.file_extension):
+                        yield self.__yield_file__(pathname)
+    
     def __len__(self):
         """Iterates once over the corpus to set and store length"""
         if self.length is None:
@@ -93,13 +92,10 @@ class CoNLLDataset(object):
 
 def get_vocabs(datasets):
     """Build vocabulary from an iterable of datasets objects
-
     Args:
         datasets: a list of dataset objects
-
     Returns:
         a set of all the words in the dataset
-
     """
     print("Building vocab...")
     vocab_words = set()
@@ -132,16 +128,14 @@ def get_char_vocab(dataset):
 
 def get_glove_vocab(filename):
     """Load vocab from file
-
     Args:
         filename: path to the glove vectors
-
     Returns:
         vocab: set() of strings
     """
     print("Building vocab...")
     vocab = set()
-    with open(filename) as f:
+    with open(filename, encoding='utf-8') as f:
         for line in f:
             word = line.strip().split(' ')[0]
             vocab.add(word)

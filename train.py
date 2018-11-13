@@ -1,4 +1,4 @@
-from model.data_utils import CoNLLDataset
+from model.data_utils import AnnotationDataset
 from model.ner_model import NERModel
 from model.config import Config
 
@@ -14,10 +14,12 @@ def main():
     # model.reinitialize_weights("proj")
 
     # create datasets
-    dev   = CoNLLDataset(config.filename_dev, config.processing_word,
-                         config.processing_tag, config.max_iter)
-    train = CoNLLDataset(config.filename_train, config.processing_word,
-                         config.processing_tag, config.max_iter)
+    dev   = AnnotationDataset(
+        '/ben/textkernel/annotations', file_extension='ann', processing_word=processing_word
+    )
+    train = AnnotationDataset(
+        '/u02/textkernel/annotations', file_extension='ann', processing_word=processing_word
+    )
 
     # train model
     model.train(train, dev)
